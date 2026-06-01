@@ -5,24 +5,13 @@
 let tarjetaArrastrada = null;
 let idTareaArrastrada = null;
 
-// Usamos AbortController para poder remover todos los listeners antes de volver a añadirlos
-// Esto evita que se acumulen múltiples handlers al llamar initDragAndDrop() varias veces
-let dragAbortController = null;
-
 function initDragAndDrop() {
-  // Cancelamos todos los listeners del ciclo anterior antes de añadir nuevos
-  if (dragAbortController) {
-    dragAbortController.abort();
-  }
-  dragAbortController = new AbortController();
-  const signal = dragAbortController.signal;
-
-  attachDragToCards(signal);
-  attachDropZones(signal);
+  attachDragToCards();
+  attachDropZones();
 }
 
 // Hace que cada tarjeta se pueda arrastrar
-function attachDragToCards(signal) {
+function attachDragToCards() {
   const cards = document.querySelectorAll(".task-card[data-task-id]");
   for (let i = 0; i < cards.length; i++) {
     cards[i].setAttribute("draggable", "true");
@@ -33,22 +22,22 @@ function attachDragToCards(signal) {
       this.classList.add("opacity-50");
       e.dataTransfer.effectAllowed = "move";
       e.dataTransfer.setData("text/plain", idTareaArrastrada);
-    }, { signal });
+    });
 
     cards[i].addEventListener("dragend", function() {
       this.classList.remove("opacity-50");
       tarjetaArrastrada = null;
       idTareaArrastrada = null;
-    }, { signal });
+    });
   }
 }
 
 // Hace que cada columna acepte tarjetas soltadas
-function attachDropZones(signal) {
+function attachDropZones() {
   const zones = document.querySelectorAll(".kanban-column .flex-1.space-y-md");
   for (let i = 0; i < zones.length; i++) {
-    zones[i].addEventListener("dragover",  function(e) { e.preventDefault(); }, { signal });
-    zones[i].addEventListener("dragenter", function(e) { e.preventDefault(); }, { signal });
+    zones[i].addEventListener("dragover",  function(e) { e.preventDefault(); });
+    zones[i].addEventListener("dragenter", function(e) { e.preventDefault(); });
 
     zones[i].addEventListener("drop", function(e) {
       e.preventDefault();
@@ -58,16 +47,15 @@ function attachDropZones(signal) {
       const nuevoEstado = getStatusFromColumn(this.closest(".kanban-column"));
       if (!nuevoEstado) return;
 
-      // Movemos la tarjeta visualmente sin re-renderizar todo el board
       this.appendChild(tarjetaArrastrada);
       updateCardVisual(tarjetaArrastrada, nuevoEstado);
       updateColumnCounts();
 
-      // Guardamos el nuevo estado en el servidor (sin recargar la página)
+      // Guardamos el nuevo estado en el servidor
       const id = idTareaArrastrada;
       Api.updateTask(id, { status: nuevoEstado })
         .catch(function(err) { console.error("Could not save change:", err); });
-    }, { signal });
+    });
   }
 }
 

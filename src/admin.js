@@ -11,28 +11,22 @@ const INPUT_CLASS =
 
 // ── Helpers de modal ─────────────────────────────────────────
 
-// Cierra el modal que esté abierto
 function closeModal() {
   const overlay = document.getElementById("modal-overlay");
   if (overlay) overlay.remove();
 }
 
-// Crea el fondo oscuro del modal
 function createOverlay() {
   const overlay = document.createElement("div");
   overlay.id = "modal-overlay";
   overlay.className =
     "fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4";
-
-  // Clic fuera del modal → se cierra
   overlay.addEventListener("click", function(e) {
     if (e.target === overlay) closeModal();
   });
-
   return overlay;
 }
 
-// Crea la caja blanca del modal con su título y botón de cerrar
 function createModalBox(title) {
   const box = document.createElement("div");
   box.className =
@@ -58,7 +52,6 @@ function createModalBox(title) {
   return box;
 }
 
-// Crea un campo de formulario con su label y espacio para error
 function createField(labelText, inputEl) {
   const wrapper = document.createElement("div");
   wrapper.className = "space-y-xs";
@@ -74,11 +67,9 @@ function createField(labelText, inputEl) {
   wrapper.appendChild(inputEl);
   wrapper.appendChild(error);
 
-  // Devolvemos el wrapper y el párrafo de error para poder usarlos después
   return { wrapper: wrapper, error: error };
 }
 
-// Crea el botón "Cancel" que cierra el modal
 function makeCancelBtn() {
   const btn = document.createElement("button");
   btn.className =
@@ -89,7 +80,6 @@ function makeCancelBtn() {
   return btn;
 }
 
-// Muestra un mensaje de éxito dentro del modal y luego lo cierra solo
 function showSuccess(message) {
   const overlay = document.getElementById("modal-overlay");
   if (!overlay) return;
@@ -106,18 +96,15 @@ function showSuccess(message) {
       "</p>" +
     "</div>";
 
-  // Cierra el modal después de 1.5 segundos
   setTimeout(closeModal, 1500);
 }
 
 
 // ── Tareas ───────────────────────────────────────────────────
 
-// Abre el modal para crear una tarea nueva
 async function openNewTaskModal() {
   closeModal();
 
-  // Traemos los usuarios para el selector "Assign to"
   let users = [];
   try { users = await Api.getUsers(); } catch(e) { console.error(e); }
 
@@ -125,7 +112,6 @@ async function openNewTaskModal() {
   const box     = createModalBox("New Task");
   const form    = buildTaskForm(users, {});
 
-  // Botón guardar
   const saveBtn = document.createElement("button");
   saveBtn.className =
     "flex-1 py-md bg-primary text-on-primary rounded-lg font-label-md " +
@@ -133,7 +119,6 @@ async function openNewTaskModal() {
   saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px]">add</span> Create Task';
 
   saveBtn.addEventListener("click", async function() {
-    // Validación: el título es obligatorio
     const titleVal = form.titleInput.value.trim();
     if (!titleVal) {
       form.titleError.textContent = "Title is required.";
@@ -142,16 +127,20 @@ async function openNewTaskModal() {
     }
     form.titleError.classList.add("hidden");
 
-    // Bloqueamos el botón mientras guarda
     saveBtn.disabled = true;
-    saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Saving…';
+    saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Saving...';
+
+    // Buscamos el nombre del usuario asignado para mostrarlo en la tarjeta
+    const selectedUserId = form.assignSelect.value ? Number(form.assignSelect.value) : null;
+    const selectedUser   = users.find(function(u) { return u.id === selectedUserId; }) || null;
 
     const newTask = {
       id:          generateId(),
       title:       titleVal,
       description: form.descInput.value.trim(),
       status:      form.statusSelect.value,
-      userId:      form.assignSelect.value ? Number(form.assignSelect.value) : null
+      userId:      selectedUserId,
+      userName:    selectedUser ? selectedUser.name : null
     };
 
     try {
@@ -166,7 +155,6 @@ async function openNewTaskModal() {
     }
   });
 
-  // Fila de botones: [Cancel] [Create Task]
   const btnRow = document.createElement("div");
   btnRow.className = "flex gap-md pt-sm";
   btnRow.appendChild(makeCancelBtn());
@@ -179,7 +167,6 @@ async function openNewTaskModal() {
   form.titleInput.focus();
 }
 
-// Abre el modal para editar una tarea existente
 async function openEditTaskModal(task) {
   closeModal();
 
@@ -190,7 +177,6 @@ async function openEditTaskModal(task) {
   const box     = createModalBox("Edit Task");
   const form    = buildTaskForm(users, task);
 
-  // Botón eliminar (rojo, solo el ícono)
   const deleteBtn = document.createElement("button");
   deleteBtn.className =
     "py-md px-lg border border-error text-error rounded-lg font-label-md " +
@@ -199,7 +185,6 @@ async function openEditTaskModal(task) {
   deleteBtn.title = "Delete task";
   deleteBtn.addEventListener("click", function() { openDeleteTaskModal(task); });
 
-  // Botón guardar cambios
   const saveBtn = document.createElement("button");
   saveBtn.className =
     "flex-1 py-md bg-primary text-on-primary rounded-lg font-label-md " +
@@ -216,13 +201,17 @@ async function openEditTaskModal(task) {
     form.titleError.classList.add("hidden");
 
     saveBtn.disabled = true;
-    saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Saving…';
+    saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Saving...';
+
+    const selectedUserId = form.assignSelect.value ? Number(form.assignSelect.value) : null;
+    const selectedUser   = users.find(function(u) { return u.id === selectedUserId; }) || null;
 
     const updatedTask = {
       title:       titleVal,
       description: form.descInput.value.trim(),
       status:      form.statusSelect.value,
-      userId:      form.assignSelect.value ? Number(form.assignSelect.value) : null
+      userId:      selectedUserId,
+      userName:    selectedUser ? selectedUser.name : null
     };
 
     try {
@@ -237,7 +226,6 @@ async function openEditTaskModal(task) {
     }
   });
 
-  // Fila: [Delete] [Cancel] [Save]
   const btnRow = document.createElement("div");
   btnRow.className = "flex gap-md pt-sm";
   btnRow.appendChild(deleteBtn);
@@ -251,7 +239,6 @@ async function openEditTaskModal(task) {
   form.titleInput.focus();
 }
 
-// Abre el modal de confirmación para eliminar una tarea
 function openDeleteTaskModal(task) {
   closeModal();
 
@@ -275,7 +262,7 @@ function openDeleteTaskModal(task) {
 
   confirmBtn.addEventListener("click", async function() {
     confirmBtn.disabled = true;
-    confirmBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Deleting…';
+    confirmBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Deleting...';
 
     try {
       await Api.deleteTask(task.id);
@@ -305,13 +292,10 @@ function openDeleteTaskModal(task) {
   document.body.appendChild(overlay);
 }
 
-// Construye el formulario de tarea (sirve para crear y para editar)
-// prefill = objeto con los datos actuales si estamos editando, o {} si es nuevo
 function buildTaskForm(users, prefill) {
   const container = document.createElement("div");
   container.className = "space-y-lg";
 
-  // Campo: título
   const titleInput = document.createElement("input");
   titleInput.type = "text";
   titleInput.placeholder = "Task title";
@@ -319,15 +303,13 @@ function buildTaskForm(users, prefill) {
   titleInput.value = prefill.title || "";
   const titleField = createField("Title *", titleInput);
 
-  // Campo: descripción
   const descInput = document.createElement("textarea");
   descInput.rows = 3;
-  descInput.placeholder = "Describe the task…";
+  descInput.placeholder = "Describe the task...";
   descInput.className = INPUT_CLASS + " resize-none";
   descInput.value = prefill.description || "";
   const descField = createField("Description", descInput);
 
-  // Campo: estado (To Do, In Progress, etc.)
   const statusSelect = document.createElement("select");
   statusSelect.className = INPUT_CLASS;
   for (let i = 0; i < STATUSES.length; i++) {
@@ -339,7 +321,6 @@ function buildTaskForm(users, prefill) {
   }
   const statusField = createField("Status *", statusSelect);
 
-  // Campo: asignar a un usuario
   const assignSelect = document.createElement("select");
   assignSelect.className = INPUT_CLASS;
   const defaultOpt = document.createElement("option");
@@ -355,7 +336,6 @@ function buildTaskForm(users, prefill) {
   }
   const assignField = createField("Assign to", assignSelect);
 
-  // Párrafo de error general (para errores del servidor)
   const generalError = document.createElement("p");
   generalError.className = "hidden font-body-sm text-body-sm text-error";
 
@@ -365,7 +345,6 @@ function buildTaskForm(users, prefill) {
   container.appendChild(assignField.wrapper);
   container.appendChild(generalError);
 
-  // Devolvemos todo lo que necesitamos para leer los valores y mostrar errores
   return {
     container:    container,
     titleInput:   titleInput,
@@ -380,34 +359,27 @@ function buildTaskForm(users, prefill) {
 
 // ── Usuarios (vista Team) ────────────────────────────────────
 
-// Variable para guardar el HTML del kanban mientras estamos en Team
 let boardBackup = null;
 
-// Muestra la vista de Team: oculta el kanban y muestra la lista de usuarios
 async function showTeamView() {
   if (!Session.isAdmin()) return;
 
-  // Buscamos el área de contenido donde vive el kanban
   const contentArea = document.querySelector("main .flex-1.overflow-x-auto");
   if (!contentArea) return;
 
-  // Guardamos el HTML del kanban la primera vez que entramos a Team
   if (!boardBackup) {
     boardBackup = contentArea.innerHTML;
   }
 
-  // Limpiamos el área y cambiamos el scroll para que sea vertical
   contentArea.innerHTML = "";
   contentArea.classList.remove("overflow-x-auto");
   contentArea.classList.add("overflow-y-auto");
 
-  // Mostramos "Loading..." mientras traemos los usuarios
   const loadingMsg = document.createElement("p");
   loadingMsg.className = "font-body-md text-body-md text-on-surface-variant text-center py-xl";
-  loadingMsg.textContent = "Loading team…";
+  loadingMsg.textContent = "Loading team...";
   contentArea.appendChild(loadingMsg);
 
-  // Pedimos los usuarios al servidor
   let users = [];
   try {
     users = await Api.getUsers();
@@ -416,10 +388,8 @@ async function showTeamView() {
     return;
   }
 
-  // Ya tenemos los usuarios, limpiamos y construimos la vista
   contentArea.innerHTML = "";
 
-  // Encabezado: título "Team" + botón "Add User"
   const topRow = document.createElement("div");
   topRow.className = "flex items-center justify-between mb-lg";
 
@@ -440,7 +410,6 @@ async function showTeamView() {
   topRow.appendChild(addBtn);
   contentArea.appendChild(topRow);
 
-  // Lista de tarjetas de usuarios
   const list = document.createElement("div");
   list.className = "space-y-md";
 
@@ -458,31 +427,25 @@ async function showTeamView() {
   contentArea.appendChild(list);
 }
 
-// Vuelve a mostrar el kanban original
 function showDashboardView() {
   const contentArea = document.querySelector("main .flex-1.overflow-y-auto");
   if (!contentArea || !boardBackup) return;
 
-  // Restauramos el HTML guardado
   contentArea.innerHTML = boardBackup;
   boardBackup = null;
 
-  // Volvemos al scroll horizontal del kanban
   contentArea.classList.remove("overflow-y-auto");
   contentArea.classList.add("overflow-x-auto");
 
-  // Volvemos a activar el drag & drop y la búsqueda si había una activa
   initDragAndDrop();
   if (currentSearchQuery) filterTasks(currentSearchQuery);
 }
 
-// Construye la tarjeta visual de un usuario con sus botones de editar y eliminar
 function buildUserCard(user) {
   const card = document.createElement("div");
   card.className =
     "bg-surface border border-outline-variant rounded-xl p-md flex items-center justify-between gap-md";
 
-  // Información del usuario: nombre, email y rol
   const info = document.createElement("div");
   info.className = "flex-1 min-w-0";
 
@@ -504,7 +467,6 @@ function buildUserCard(user) {
   info.appendChild(emailEl);
   info.appendChild(roleBadge);
 
-  // Botones de acción: editar y eliminar
   const actions = document.createElement("div");
   actions.className = "flex items-center gap-sm shrink-0";
 
@@ -533,8 +495,6 @@ function buildUserCard(user) {
   return card;
 }
 
-// Construye el formulario de usuario (sirve para crear y para editar)
-// prefill = objeto con los datos actuales si estamos editando, o {} si es nuevo
 function buildUserForm(prefill) {
   const container = document.createElement("div");
   container.className = "space-y-lg";
@@ -553,9 +513,8 @@ function buildUserForm(prefill) {
   emailInput.value = prefill.email || "";
   const emailField = createField("Email *", emailInput);
 
-  // Si estamos editando, la contraseña es opcional (se mantiene si se deja vacía)
   const passLabel = prefill.id ? "New Password (optional)" : "Password *";
-  const passHint  = prefill.id ? "Leave blank to keep current password" : "••••••••";
+  const passHint  = prefill.id ? "Leave blank to keep current password" : "........";
   const passInput = document.createElement("input");
   passInput.type = "password";
   passInput.placeholder = passHint;
@@ -595,8 +554,6 @@ function buildUserForm(prefill) {
   };
 }
 
-// Abre el modal para crear un usuario nuevo
-// onDone = función que se llama al terminar (para refrescar la lista)
 function openNewUserModal(onDone) {
   closeModal();
 
@@ -616,7 +573,6 @@ function openNewUserModal(onDone) {
     const passVal  = form.passInput.value;
     let valid = true;
 
-    // Validaciones
     if (!nameVal) {
       form.nameError.textContent = "Name is required.";
       form.nameError.classList.remove("hidden");
@@ -638,7 +594,7 @@ function openNewUserModal(onDone) {
     if (!valid) return;
 
     saveBtn.disabled = true;
-    saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Saving…';
+    saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Saving...';
 
     const newUser = {
       id:       generateId(),
@@ -672,13 +628,12 @@ function openNewUserModal(onDone) {
   form.nameInput.focus();
 }
 
-// Abre el modal para editar un usuario existente
 function openEditUserModal(user, onDone) {
   closeModal();
 
   const overlay = createOverlay();
   const box     = createModalBox("Edit User");
-  const form    = buildUserForm(user);  // le pasamos el usuario para pre-llenar los campos
+  const form    = buildUserForm(user);
 
   const saveBtn = document.createElement("button");
   saveBtn.className =
@@ -706,9 +661,8 @@ function openEditUserModal(user, onDone) {
     if (!valid) return;
 
     saveBtn.disabled = true;
-    saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Saving…';
+    saveBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Saving...';
 
-    // Solo enviamos la contraseña si el admin escribió una nueva
     const updatedData = {
       name:  nameVal,
       email: emailVal,
@@ -742,54 +696,41 @@ function openEditUserModal(user, onDone) {
   form.nameInput.focus();
 }
 
-// Abre el modal de confirmación para eliminar un usuario
-// Bloquea la eliminación si el usuario tiene tareas asignadas
+// Abre el modal de confirmación para eliminar un usuario.
+// Si el usuario tiene tareas asignadas, bloquea la eliminación y muestra un aviso.
 async function openDeleteUserModal(user, onDone) {
   closeModal();
 
   const overlay = createOverlay();
   const box     = createModalBox("Delete User");
-
   const content = document.createElement("div");
   content.className = "space-y-lg";
 
-  // Verificamos si el usuario tiene tareas antes de mostrar el modal
-  let userTasks = [];
-  try {
-    const allTasks = await Api.getTasks();
-    userTasks = allTasks.filter(function(t) { return String(t.userId) === String(user.id); });
-  } catch(err) {
-    console.error("Could not check tasks:", err);
-  }
+  // Verificamos si el usuario tiene tareas antes de mostrar el botón de confirmar
+  let tasks = [];
+  try { tasks = await Api.getTasks(); } catch(e) { console.error(e); }
+
+  const userTasks = tasks.filter(function(t) { return String(t.userId) === String(user.id); });
 
   if (userTasks.length > 0) {
-    // El usuario tiene tareas → mostrar advertencia y bloquear eliminación
-    const warningIcon = document.createElement("div");
-    warningIcon.className = "flex justify-center";
-    warningIcon.innerHTML =
-      '<span class="material-symbols-outlined text-5xl text-warning" ' +
-      'style="font-variation-settings:\'FILL\' 1; color: #b45309;">warning</span>';
+    // Usuario con tareas: mostramos advertencia y solo el botón de cerrar
+    const warningMsg = document.createElement("p");
+    warningMsg.className = "font-body-md text-body-md text-on-surface-variant";
+    warningMsg.innerHTML =
+      'No se puede eliminar a <strong class="text-on-surface">' + escapeHtml(user.name) +
+      '</strong> porque tiene <strong class="text-error">' + userTasks.length +
+      ' tarea' + (userTasks.length > 1 ? 's' : '') +
+      ' asignada' + (userTasks.length > 1 ? 's' : '') +
+      '</strong>. Reasigna o elimina sus tareas primero.';
 
-    const msg = document.createElement("p");
-    msg.className = "font-body-md text-body-md text-on-surface-variant text-center";
-    msg.innerHTML =
-      'Cannot delete <strong class="text-on-surface">' + escapeHtml(user.name) + "</strong>.<br>" +
-      'This user has <strong class="text-error">' + userTasks.length +
-      ' task' + (userTasks.length > 1 ? 's' : '') + '</strong> assigned. ' +
-      'Please reassign or delete their tasks first.';
+    const btnRow = document.createElement("div");
+    btnRow.className = "flex gap-md pt-sm";
+    btnRow.appendChild(makeCancelBtn());
 
-    const closeButton = document.createElement("button");
-    closeButton.className =
-      "w-full py-md border border-outline-variant rounded-lg font-label-md " +
-      "text-label-md text-on-surface hover:bg-surface-container-low transition-colors";
-    closeButton.textContent = "Understood";
-    closeButton.addEventListener("click", closeModal);
-
-    content.appendChild(warningIcon);
-    content.appendChild(msg);
-    content.appendChild(closeButton);
+    content.appendChild(warningMsg);
+    content.appendChild(btnRow);
   } else {
-    // El usuario NO tiene tareas → permitir eliminación normal
+    // Usuario sin tareas: flujo normal de confirmación
     const msg = document.createElement("p");
     msg.className = "font-body-md text-body-md text-on-surface-variant";
     msg.innerHTML =
@@ -807,7 +748,7 @@ async function openDeleteUserModal(user, onDone) {
 
     confirmBtn.addEventListener("click", async function() {
       confirmBtn.disabled = true;
-      confirmBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Deleting…';
+      confirmBtn.innerHTML = '<span class="material-symbols-outlined text-[18px] animate-spin">autorenew</span> Deleting...';
 
       try {
         await Api.deleteUser(user.id);
@@ -839,8 +780,6 @@ async function openDeleteUserModal(user, onDone) {
 
 // ── Inicialización ───────────────────────────────────────────
 
-// Se llama desde board.js al cargar el board
-// Conecta el botón "New Project" del sidebar para que abra el modal de nueva tarea
 function renderAdminButtons() {
   if (!Session.isAdmin()) return;
 

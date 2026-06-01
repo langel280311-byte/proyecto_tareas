@@ -69,15 +69,23 @@
       "id": "1779979358225",
       "title": "isaac",
       "description": "que las task se puedan eliminar",
-      "status": "in progress",
+      "status": "todo",
       "userId": 1779935383356
     },
     {
       "id": "1780103290579",
       "title": "ask",
       "description": "zzzz",
-      "status": "todo",
+      "status": "in progress",
       "userId": 1779935383356
+    },
+    {
+      "id": "V9vxYCbTXOA",
+      "title": "dashboard",
+      "description": "tarea prueba",
+      "status": "todo",
+      "userId": 2,
+      "userName": null
     }
   ],
   "$schema": "./node_modules/json-server/schema.json"

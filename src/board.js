@@ -2,30 +2,25 @@
 // board.js  —  Renderizado del tablero Kanban y búsqueda
 // ─────────────────────────────────────────────────────────────
 
-// Guarda el texto de búsqueda actual para poder reaplicarlo después
 let currentSearchQuery = "";
 
-// Inicializa todo cuando cargamos el board
 async function initBoard() {
   const user = Session.get();
-  renderTopBar(user);       // muestra el nombre y el botón de logout
-  renderAdminButtons();     // activa los botones de admin (admin.js)
-  await renderBoard();      // carga y dibuja las tareas
-  initSearch();             // activa el buscador
-  connectNavLinks();        // conecta los links del sidebar (Team y Dashboard)
+  renderTopBar(user);
+  renderAdminButtons();
+  await renderBoard();
+  initSearch();
+  connectNavLinks();
 }
 
-// Pone el nombre del usuario y el botón de logout en el header
 function renderTopBar(user) {
   const header = document.querySelector("header");
   if (!header) return;
 
-  // Badge con el nombre y rol
   const badge = document.createElement("span");
   badge.className = "font-label-md text-label-md text-on-surface-variant hidden md:block";
   badge.textContent = user.name + " (" + user.role + ")";
 
-  // Botón de logout
   const logoutBtn = document.createElement("button");
   logoutBtn.className =
     "flex items-center gap-1 text-error font-label-md text-label-md hover:underline ml-2";
@@ -43,18 +38,15 @@ function renderTopBar(user) {
   }
 }
 
-// Carga las tareas del servidor y las dibuja en el kanban
 async function renderBoard() {
   const tasks = await Api.getTasks();
   const users = await Api.getUsers();
 
-  // Vaciamos las columnas antes de volver a pintar
   const columns = document.querySelectorAll(".kanban-column .flex-1.space-y-md");
   for (let i = 0; i < columns.length; i++) {
     columns[i].innerHTML = "";
   }
 
-  // Actualizamos los contadores de cada columna
   for (let s = 0; s < STATUSES.length; s++) {
     const status = STATUSES[s];
     const count = tasks.filter(function(t) { return t.status === status; }).length;
@@ -66,24 +58,25 @@ async function renderBoard() {
     }
   }
 
-  // Agregamos cada tarea a su columna
   for (let t = 0; t < tasks.length; t++) {
     const task = tasks[t];
-    let assignedUser = null;
-    for (let u = 0; u < users.length; u++) {
-      if (users[u].id === task.userId) { assignedUser = users[u]; break; }
+    // Primero intentamos usar userName guardado en la tarea,
+    // si no existe lo buscamos en la lista de usuarios (compatibilidad con tareas antiguas)
+    let assignedName = task.userName || null;
+    if (!assignedName && task.userId) {
+      for (let u = 0; u < users.length; u++) {
+        if (String(users[u].id) === String(task.userId)) { assignedName = users[u].name; break; }
+      }
     }
     const container = getColumnContainer(task.status);
-    if (container) container.appendChild(buildTaskCard(task, assignedUser));
+    if (container) container.appendChild(buildTaskCard(task, assignedName));
   }
 
   initDragAndDrop();
 
-  // Si había una búsqueda activa, la reaplicamos
   if (currentSearchQuery) filterTasks(currentSearchQuery);
 }
 
-// Devuelve el div donde van las tarjetas de una columna según su estado
 function getColumnContainer(status) {
   const h3s = document.querySelectorAll(".kanban-column h3");
   for (let i = 0; i < h3s.length; i++) {
@@ -95,23 +88,23 @@ function getColumnContainer(status) {
 }
 
 // Construye la tarjeta visual de una tarea
-function buildTaskCard(task, assignedUser) {
+// assignedName: string con el nombre del usuario asignado, o null
+function buildTaskCard(task, assignedName) {
   const isDone = task.status === "done";
 
   const card = document.createElement("div");
   card.className =
     "task-card bg-surface border border-outline-variant rounded-xl p-md shadow-sm " +
     (isDone ? "opacity-80" : "");
-  card.dataset.taskId = task.id;
-  card.dataset.userId = task.userId;
+  card.dataset.taskId  = task.id;
+  card.dataset.userId  = task.userId;
+  card.dataset.userName = assignedName || "";
 
-  // Ícono de check si la tarea está terminada
   const checkHTML = isDone
     ? '<span class="material-symbols-outlined text-sm dnd-check-icon" ' +
       'style="font-variation-settings:\'FILL\' 1;color:#8f4200">check_circle</span>'
     : "";
 
-  // Botón de editar (solo visible para el admin)
   const editBtnHTML = Session.isAdmin()
     ? '<button class="edit-task-btn material-symbols-outlined text-sm text-outline ' +
       'hover:text-primary transition-colors" title="Edit task">edit</button>'
@@ -129,23 +122,17 @@ function buildTaskCard(task, assignedUser) {
     '<h4 class="' + titleClass + '">' + escapeHtml(task.title) + "</h4>" +
     '<p class="font-body-sm text-body-sm text-on-surface-variant">' + escapeHtml(task.description) + "</p>" +
     '<div class="mt-md flex items-center justify-between">' +
-      (assignedUser
-        ? '<span class="inline-flex items-center gap-1 bg-secondary-container text-on-secondary-container ' +
-          'px-2 py-0.5 rounded-full font-label-sm text-label-sm">' +
-          '<span class="material-symbols-outlined text-xs" style="font-size:13px">person</span>' +
-          escapeHtml(assignedUser.name) +
-          '</span>'
-        : '<span class="font-label-sm text-label-sm text-on-surface-variant opacity-60 italic">Unassigned</span>'
-      ) +
+      '<span class="assigned-name font-label-sm text-label-sm text-on-surface-variant">' +
+        "👤 " + (assignedName ? escapeHtml(assignedName) : "Unassigned") +
+      "</span>" +
     "</div>";
 
-  // Conectamos el botón de editar si somos admin
   if (Session.isAdmin()) {
     const editBtn = card.querySelector(".edit-task-btn");
     if (editBtn) {
       editBtn.addEventListener("click", function(e) {
         e.stopPropagation();
-        openEditTaskModal(task);  // admin.js
+        openEditTaskModal(task);
       });
     }
   }
@@ -166,7 +153,6 @@ function initSearch() {
   });
 }
 
-// Muestra u oculta las tarjetas según el texto buscado
 function filterTasks(query) {
   const cards = document.querySelectorAll(".task-card");
 
@@ -177,7 +163,6 @@ function filterTasks(query) {
     cards[i].style.display = match ? "" : "none";
   }
 
-  // Actualizamos el contador de cada columna con las tarjetas visibles
   const columnas = document.querySelectorAll(".kanban-column");
   for (let j = 0; j < columnas.length; j++) {
     const visible = columnas[j].querySelectorAll(".task-card:not([style*='display: none'])").length;
